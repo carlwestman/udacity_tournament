@@ -1,34 +1,46 @@
 #!/usr/bin/env python
-# 
+#
 # tournament.py -- implementation of a Swiss-system tournament
 #
 
 import psycopg2
 import types
 
+
 def connect():
-    """Connect to the PostgreSQL database.  Returns a database connection."""
-    return psycopg2.connect("dbname=tournament")
+    """
+    Connect to the PostgreSQL database.
+    Returns a database connection and cursor.
+    """
+    try:
+        conn = psycopg2.connect("dbname=tournament")
+        c = conn.cursor()
+    except psycopg2.Error as e:
+        print e
+    else:
+        return conn, c
 
 
 def deleteMatches(tournament_id=None):
     """Remove all the match records from the database for given tournament or all.
         args: tournament_id (optional), int
             if tournament_id is not given all match records are deleted
-            if tournament_id is given all matches for given tournament are deleted
+            if tournament_id is given all matches for given tournament
+             are deleted
 
         Returns boolean
             False = Invalid argument or some exception thrown in DB
             True = matches deleted according to arg supplied (or not supplied)
     """
     # Validate input
-    if not validate_input(tournament_id, [types.NoneType, types.IntType], True):
+    if not validate_input(tournament_id,
+                          [types.NoneType, types.IntType], True):
         return False
     # Connect to database and setup cursor
-    conn = connect()
-    c = conn.cursor()
+    conn, c = connect()
 
-    # Setup query str and try to execute query or throw exception, close connection
+    # Setup query str and try to execute query or throw exception,
+    # close connection
     try:
         if tournament_id:
             query_str = "DELETE FROM matches where tournament_id = %s;"
@@ -60,12 +72,14 @@ def deletePlayers(player_id=None):
         return False
 
     # Connect to database and setup cursor
-    conn = connect()
-    c = conn.cursor()
-    # Setup query str and try to execute query or throw exception, close connection
+    conn, c = connect()
+
+    # Setup query str and try to execute query or throw exception,
+    # close connection
     try:
         if player_id:
-            query_str = "DELETE FROM tournament_participants WHERE player_id = %s;"
+            query_str = "DELETE FROM tournament_participants  \
+                        WHERE player_id = %s;"
             c.execute(query_str, (player_id,))
             query_str = "DELETE FROM players WHERE player_id = %s;"
             c.execute(query_str, (player_id, ))
@@ -94,18 +108,21 @@ def deleteTournament(tournament_id=None):
             False = Invalid argument or some exception thrown in DB
             True = matches deleted according to arg supplied (or not supplied)
     """
-    if not validate_input(tournament_id, [types.NoneType, types.IntType], True):
+    if not validate_input(tournament_id,
+                          [types.NoneType, types.IntType], True):
         return False
 
     # Connect to database and setup cursor
-    conn = connect()
-    c = conn.cursor()
-    # Setup query str and try to execute query or throw exception, close connection
+    conn, c = connect()
+
+    # Setup query str and try to execute query or
+    # throw exception, close connection
     try:
         if tournament_id:
             query_str = "DELETE FROM tournament WHERE tournament_id = %s;"
             c.execute(query_str, (tournament_id, ))
-            query_str = "DELETE FROM tournament_participants WHERE tournament_id = %s;"
+            query_str = "DELETE FROM tournament_participants \
+                        WHERE tournament_id = %s;"
             c.execute(query_str, (tournament_id,))
         else:
             query_str = "DELETE FROM tournament;"
@@ -123,7 +140,8 @@ def deleteTournament(tournament_id=None):
 
 
 def countPlayers(tournament_id=None):
-    """Returns the number of players currently registered. or if tournament_id given count
+    """Returns the number of players currently registered.
+        or if tournament_id given count
         number of players registered for given tournament
 
         args:
@@ -133,16 +151,20 @@ def countPlayers(tournament_id=None):
             False on invalid input or DB exception
     """
     # Validate input
-    if not validate_input(tournament_id, [types.NoneType, types.IntType], True):
+    if not validate_input(tournament_id,
+                          [types.NoneType, types.IntType], True):
         return False
 
     # Connect to database and setup cursor
-    conn = connect()
-    c = conn.cursor()
-    # Setup query str and try to execute query or throw exception, close connection, structure return
+    conn, c = connect()
+
+    # Setup query str and try to execute query or throw exception,
+    # close connection, structure return
     try:
         if tournament_id:
-            query_str = "SELECT count(player_id) FROM tournament_participants WHERE tournament_id = %s;"
+            query_str = "SELECT count(player_id) \
+                        FROM tournament_participants \
+                        WHERE tournament_id = %s;"
             c.execute(query_str, (tournament_id, ))
         else:
             query_str = "SELECT count(player_id) FROM players;"
@@ -157,13 +179,15 @@ def countPlayers(tournament_id=None):
     else:
         return int(result[0])
 
+
 def registerPlayer(name):
     """Adds a player to the tournament database.
-  
-    The database assigns a unique serial id number for the player.  (This
-    should be handled by your SQL database schema, not in your Python code.)
 
-  
+    The database assigns a unique serial id number
+    for the player.
+    (This should be handled by your SQL database schema,
+    not in your Python code.)
+
     Args:
       name: the player's full name (need not be unique).
     Returns:
@@ -171,17 +195,16 @@ def registerPlayer(name):
         False if input not text or db throws exception
     """
 
-    #validate input
+    # validate input
     if not validate_input(name, [types.StringType], True):
         return False
 
-    conn = connect()
-    c = conn.cursor()
+    conn, c = connect()
 
     # setup query_string and try to execute, close connection
     try:
-        c.execute("INSERT INTO players (player_name) VALUES (%s);", (name, ))
-        c.execute("SELECT currval(pg_get_serial_sequence('players', 'player_id'));")
+        c.execute("INSERT INTO players (player_name) \
+                  VALUES (%s) RETURNING player_id;", (name, ))
         player_id = c.fetchone()
         conn.commit()
         c.close()
@@ -192,6 +215,7 @@ def registerPlayer(name):
     else:
         return int(player_id[0])
 
+
 def registerTournament(name):
     """ Adds a tournament
 
@@ -200,17 +224,17 @@ def registerTournament(name):
         Returns:
             the tournament ID as an int or False if error
     """
-    #validate input
+    # validate input
     if not validate_input(name, [types.StringType], True):
         return False
 
     # Connect to db
-    conn = connect()
-    c = conn.cursor()
+    conn, c = connect()
+
     # setup query_string and try to execute, close connection
     try:
-        c.execute("INSERT INTO tournament (tournament_name) VALUES (%s);", (name, ))
-        c.execute("SELECT currval(pg_get_serial_sequence('tournament', 'tournament_id'));")
+        c.execute("INSERT INTO tournament (tournament_name) \
+                  VALUES (%s) RETURNING tournament_id;", (name, ))
         tournament_id = c.fetchone()
         conn.commit()
         c.close()
@@ -223,7 +247,8 @@ def registerTournament(name):
 
 
 def registerPlayerInTournament(player_id, tournament_id):
-    """Adds a given player to a given tournament in tournament_participant table
+    """Adds a given player to a given tournament in
+        tournament_participant table
 
         Args:
             player_id, int
@@ -232,15 +257,17 @@ def registerPlayerInTournament(player_id, tournament_id):
             True if success
             False if DB exception or input invalid
     """
-    if not (validate_input(player_id, [types.IntType], True) or validate_input(tournament_id, [types.IntType], True)):
+    if not validate_input(player_id, [types.IntType], True):
+        return False
+    if not validate_input(tournament_id, [types.IntType], True):
         return False
     # Connect to DB and setup cursor
-    conn = connect()
-    c = conn.cursor()
+    conn, c = connect()
 
     # setup query_string and try to execute, close connection
     try:
-        c.execute("INSERT INTO tournament_participants (player_id, tournament_id) VALUES (%s, %s);",
+        c.execute("INSERT INTO tournament_participants \
+                    (player_id, tournament_id) VALUES (%s, %s);",
                   (player_id, tournament_id, ))
         conn.commit()
         c.close()
@@ -253,10 +280,12 @@ def registerPlayerInTournament(player_id, tournament_id):
 
 
 def playerStandings(tournament_id):
-    """Returns a list of the players and their win records, sorted by wins.
+    """Returns a list of the players and their win records,
+    sorted by wins.
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    The first entry in the list should be the player
+    in first place, or a playertied for first place if there
+    is currently a tie.
 
     Returns:
       A list of tuples, each of which contains (id, name, wins, matches):
@@ -268,8 +297,8 @@ def playerStandings(tournament_id):
     if not validate_input(tournament_id, [types.IntType], True):
         return False
     # Connect to DB and setup cursor
-    conn = connect()
-    c = conn.cursor()
+    conn, c = connect()
+
     # setup query_string and try to execute, close connection
     try:
         c.execute("SELECT \
@@ -291,7 +320,10 @@ def playerStandings(tournament_id):
         # Structure result and return
         func_result = []
         for row in query_result:
-            func_result.append((row[0], row[1], int(row[2]), int(row[3])))
+            func_result.append((row[0],
+                                row[1],
+                                int(row[2]),
+                                int(row[3])))
         return func_result
 
 
@@ -301,7 +333,8 @@ def reportMatch(winner, loser, tournament_id):
     Args:
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
-      tournament_id: the id number of the tournament in which the match was played
+      tournament_id: the id number of the tournament in
+      which the match was played
     Returns:
         True if insert succeded
         False if insert failed or input data invalid
@@ -313,12 +346,12 @@ def reportMatch(winner, loser, tournament_id):
     if not validate_input(tournament_id, [types.IntType], True):
         return False
     # connect to db
-    conn = connect()
-    c = conn.cursor()
+    conn, c = connect()
 
     # update matches entry with result in matches table
     try:
-        c.execute("INSERT INTO matches (tournament_id, winner, loser) VALUES (%s, %s, %s)",
+        c.execute("INSERT INTO matches (tournament_id, winner, loser) \
+                    VALUES (%s, %s, %s)",
                   (tournament_id, winner, loser, ))
         conn.commit()
         c.close()
@@ -328,10 +361,11 @@ def reportMatch(winner, loser, tournament_id):
         return False
     else:
         return True
- 
+
+
 def swissPairings(tournament_id):
     """Returns a list of pairs of players for the next round of a match.
-  
+
     Assuming that there are an even number of players registered, each player
     appears exactly once in the pairings.  Each player is paired with another
     player with an equal or nearly-equal win record, that is, a player adjacent
@@ -348,9 +382,8 @@ def swissPairings(tournament_id):
     """
     if not validate_input(tournament_id, [types.IntType], True):
         return False
-        # Connect to DB and setup cursor
-    conn = connect()
-    c = conn.cursor()
+    # Connect to DB and setup cursor
+    conn, c = connect()
     # setup query_string and try to execute, close connection
     try:
         c.execute("SELECT \
@@ -367,8 +400,10 @@ def swissPairings(tournament_id):
         # print e # Uncomment for degbugging
         return False
     else:
-        # Structure result and return, assumes even number of tournament participants
-        # loop through query result ant create tuples of even and odd index pairs and append to list
+        # Structure result and return, assumes even number of
+        # tournament participants
+        # loop through query result ant create tuples of
+        # even and odd index pairs and append to list
         func_result = []
         for i, row in enumerate(query_result):
             if (i % 2) == 0:
@@ -384,7 +419,8 @@ def validate_input(input, expected_values, type_test=False):
         args:
             input: input value to test
             expected_values: list of expected, accepted values
-            type_test: optional, default=False, if true tests types not values
+            type_test: optional, default=False,
+            if true tests types not values
     """
     if type_test:
         if type(input) in expected_values:
@@ -393,25 +429,3 @@ def validate_input(input, expected_values, type_test=False):
         if input in expected_values:
             return True
     return False
-
-## TODO
-# 1. write unit tests
-# 3. make all funcs pass own unit tests
-# 4. modify tournament_test.py
-
-def test_register_player():
-    u =registerPlayer("Calle")
-    d = registerPlayer("Nissse")
-    if u and d:
-        print "user " + u + " and " + d + " were created"
-    else:
-        "Failed to create users"
-
-def test_delete_player():
-    a = deletePlayers()
-    if a:
-        print "Delete users success"
-    else:
-        print "failed to delete users"
-
-
